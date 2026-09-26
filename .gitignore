@@ -1,0 +1,27 @@
+# Build output
+bin/
+
+# Test and profiling artifacts
+*.test
+*.out
+*.prof
+coverage.*
+
+# Private WhatsApp state, never commit. It normally lives in ~/.local/share/whatsapp-mcp,
+# but these patterns guard against a --data-dir pointed into the repo.
+*.db
+*.db-*
+media/
+login-qr.png
+connection.lock
+
+# Secrets (e.g. WHATSAPP_MCP_TOKEN)
+.env
+.env.*
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
