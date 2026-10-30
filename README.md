@@ -142,6 +142,33 @@ remove all data.
 
 ## Development
 
+For a service that runs directly from your editable checkout, use:
+
+```sh
+make service-local
+```
+
+This builds `bin/whatsapp-mcp` and points the systemd user service at that binary.
+After changing code, run `make check` and `make service-local` again to rebuild and
+restart. The standard `make service` still installs a separate copy to `~/.local/bin`.
+Both use the same service name; whichever command you run last selects the binary.
+
+Before linking, stop the service so login can own the WhatsApp connection:
+
+```sh
+systemctl --user stop whatsapp-mcp
+./bin/whatsapp-mcp login --full-history
+make service-local
+```
+
+Keep account state in the default `~/.local/share/whatsapp-mcp` directory, outside
+the checkout. Connect MCP clients to `http://127.0.0.1:8765/mcp` to use the running
+service, including media downloads and requests for older history.
+
+Fork workflow: `origin` should point to your fork and `upstream` to
+`https://github.com/hansen1101/whatsapp-mcp-server.git`. Commit and push your changes
+to `origin`; use `git fetch upstream` when you want to review upstream updates.
+
 `make check` runs gofmt, vet, and the tests. `make install` copies the binary to `~/.local/bin`
 (override with `PREFIX=`). The version comes from the last git commit touching this directory and
 is shown by `whatsapp-mcp version` and in the MCP server info.

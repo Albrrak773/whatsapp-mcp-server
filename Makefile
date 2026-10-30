@@ -21,7 +21,7 @@ export CGO_ENABLED := 1
 GOFLAGS_BUILD := -trimpath -ldflags "-s -w -X main.version=$(VERSION)"
 SOURCES := $(wildcard *.go) go.mod go.sum
 
-.PHONY: all build check fmt vet test install service uninstall clean
+.PHONY: all build check fmt vet test install service service-local service-start uninstall clean
 
 all: build
 
@@ -51,6 +51,13 @@ install: build
 # Runs the connection-owning daemon so the archive keeps filling while no MCP client is open.
 # Link the account first (`$(BINARY) login`). Point clients at http://$(ADDR)/mcp.
 service: install
+	$(MAKE) service-start
+
+# Development: run this checkout's binary, without copying it to ~/.local/bin.
+service-local: build
+	$(MAKE) service-start BINDIR="$(CURDIR)/bin"
+
+service-start:
 	install -d $(UNITDIR)
 	printf '%s\n' \
 		'[Unit]' \
