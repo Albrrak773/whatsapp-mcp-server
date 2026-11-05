@@ -6,6 +6,13 @@ window.MOCK = {
     "How should a local status page show whether WhatsApp is linked and archiving, and make re-linking with a QR code quick? (Switch states bottom-left or with keys 1-5.)",
   variants: [
     {
+      file: "a3-status-card-cleaned.html",
+      name: "Status card, cleaned",
+      axis: "A as it was, minus the tells: no logo tile, glow, pill badges or stat tiles; WhatsApp ticks as the status mark",
+      good: "Keeps A's button, cards and message list, which the owner liked",
+      cost: "Still the dark + green look; the plain redo was too far the other way",
+    },
+    {
       file: "a2-status-plain.html",
       name: "Status, plain",
       axis: "A's layout redone with the frontend-design skill: no cards, one typeface (Readex Pro, Arabic + Latin), WhatsApp's message ticks as the status mark",
@@ -37,5 +44,6 @@ window.MOCK = {
   // Filled in as the user decides. Dated, plain sentences.
   decisions: [
     "2026-11-05: Status card (A) won for its simple layout and flow. Its look was rejected as generic AI styling (owner: 'vomit AI look'), and so was the logo tile. Redone as 'Status, plain' (a2) with Anthropic's frontend-design skill: no cards, glow, pills, stat tiles, avatars, middle dots or uppercase labels.",
+    "2026-11-05: 'Status, plain' rejected as too plain and dead. Cards are fine. Keep A's green Link device button and A's message card exactly, minus the 'Latest in the archive' subtitle. Built as 'Status card, cleaned' (a3).",
   ],
 };
