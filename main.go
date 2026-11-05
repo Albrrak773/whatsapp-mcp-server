@@ -328,7 +328,7 @@ func runServe(ctx context.Context, dataDir string, log zerolog.Logger, transport
 		}
 		mux := http.NewServeMux()
 		mux.Handle("/mcp", handler)
-		mux.Handle("/", guardPage(addr, token, newPageHandler(app, addr)))
+		mux.Handle("/", guardPage(addr, token, newPageHandler(app, addr, dataDir)))
 		srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 		go func() {
 			<-ctx.Done()

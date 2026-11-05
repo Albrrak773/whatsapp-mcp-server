@@ -135,7 +135,10 @@ it's removed on the phone).
   server does the pairing itself, so the service keeps running. Tick *Ask my phone for its full
   history* to get the same effect as `login --full-history`.
 - **After linking:** a counter of history messages arriving from the phone, until it goes quiet.
-- **What your agents can see:** archive size and the eight newest messages.
+- **What your agents can see:** archive size and the eight newest messages, with profile pictures.
+  Pictures aren't in the archive: the server asks WhatsApp for each small preview once, caches it
+  in `<data-dir>/avatars`, and checks again after a day. People who hide their picture from you,
+  and chats without one, keep the initials. While offline, only cached pictures show.
 
 The page shows private messages and can link a device, so it is guarded. On a loopback address,
 requests must also use a loopback `Host` (this blocks DNS rebinding). Actions must be same-origin

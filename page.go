@@ -83,7 +83,7 @@ type page struct {
 	qrDataURL string
 }
 
-func newPageHandler(app *App, addr string) http.Handler {
+func newPageHandler(app *App, addr, dataDir string) http.Handler {
 	p := &page{app: app, endpoint: "http://" + addr + "/mcp"}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
@@ -92,6 +92,7 @@ func newPageHandler(app *App, addr string) http.Handler {
 		_, _ = w.Write(pageHTML)
 	})
 	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) { p.reply(w, r, nil) })
+	mux.Handle("GET /api/avatar/{jid}", newAvatarCache(dataDir, app.wa))
 	mux.HandleFunc("POST /api/link", p.action(func(r *http.Request, wa *WA) error {
 		var in struct {
 			FullHistory bool `json:"full_history"`

@@ -90,7 +90,7 @@ func getStatus(t *testing.T, h http.Handler) pageStatus {
 
 func TestPageStatusOffline(t *testing.T) {
 	_, wa := setup(t) // linked, never connected
-	h := newPageHandler(&App{store: wa.store, wa: wa}, "127.0.0.1:8765")
+	h := newPageHandler(&App{store: wa.store, wa: wa}, "127.0.0.1:8765", t.TempDir())
 	wa.recordConnectFailure(syscall.ENETUNREACH, 3, time.Minute)
 
 	st := getStatus(t, h)
@@ -117,7 +117,7 @@ func TestPageStatusOffline(t *testing.T) {
 
 func TestPageStatusLoggedOutSurvivesRestart(t *testing.T) {
 	_, wa := setup(t)
-	h := newPageHandler(&App{store: wa.store, wa: wa}, "127.0.0.1:8765")
+	h := newPageHandler(&App{store: wa.store, wa: wa}, "127.0.0.1:8765", t.TempDir())
 	wa.handleEvent(&events.LoggedOut{Reason: events.ConnectFailureLoggedOut})
 	st := getStatus(t, h)
 	if st.State != stateLoggedOut || !strings.Contains(st.Error, "logged out") || st.Since == "" {
@@ -139,7 +139,7 @@ func TestStartLinkWithoutNetwork(t *testing.T) {
 	}}}
 	wa.Client().SetWebsocketHTTPClient(noNet)
 	wa.Client().SetPreLoginHTTPClient(noNet)
-	h := guardPage("127.0.0.1:8765", "", newPageHandler(&App{store: wa.store, wa: wa}, "127.0.0.1:8765"))
+	h := guardPage("127.0.0.1:8765", "", newPageHandler(&App{store: wa.store, wa: wa}, "127.0.0.1:8765", t.TempDir()))
 
 	r := httptest.NewRequest("POST", "/api/link", strings.NewReader(`{"full_history":false}`))
 	r.Host = "127.0.0.1:8765"
@@ -156,7 +156,7 @@ func TestStartLinkWithoutNetwork(t *testing.T) {
 
 func TestPageReadOnly(t *testing.T) {
 	_, wa := setup(t)
-	h := newPageHandler(&App{store: wa.store}, "127.0.0.1:8765")
+	h := newPageHandler(&App{store: wa.store}, "127.0.0.1:8765", t.TempDir())
 	if st := getStatus(t, h); st.State != stateReadOnly {
 		t.Fatalf("state = %s, want %s", st.State, stateReadOnly)
 	}
