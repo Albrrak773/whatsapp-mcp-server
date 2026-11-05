@@ -355,7 +355,7 @@ func openForServe(ctx context.Context, dataDir string, log zerolog.Logger) (*App
 	if err == nil {
 		app := &App{store: st, wa: wa, mode: "connected"}
 		if wa.Client.Store.ID == nil {
-			log.Warn().Msg("no WhatsApp account linked yet: run `whatsapp-mcp login`; serving the (empty) archive")
+			log.Warn().Msg("no WhatsApp account linked: run `whatsapp-mcp login`; serving the archive only")
 			app.mode = "not linked"
 			return app, cleanup, nil
 		}
