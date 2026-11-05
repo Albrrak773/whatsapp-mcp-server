@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhatsApp MCP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..600&display=swap" rel="stylesheet">
+<style>
+  /* Own tokens: this direction replaces the shared kit on purpose. */
+  :root {
+    --paper: #f6f7f5;
+    --ink: #17211f;
+    --ink-2: #4a5552;
+    --ink-3: #7d8784;
+    --rule: #e3e6e3;
+    --teal: #075e54;
+    --teal-hover: #0a6f63;
+    --tick: #34b7f1;      /* WhatsApp's read-receipt blue */
+    --ochre: #8a5a00;
+    --brick: #a3392b;
+    --hover: #eef0ed;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #1b2321;
+      --ink: #e7ecea;
+      --ink-2: #b0bab7;
+      --ink-3: #85908c;
+      --rule: #2c3633;
+      --teal: #1f9c8b;
+      --teal-hover: #27ad9b;
+      --ochre: #e0a63c;
+      --brick: #f0806f;
+      --hover: #222c29;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 300 16px/1.6 "Readex Pro", system-ui, sans-serif; }
+  .page { max-width: 680px; margin: 0 auto; padding: 56px 28px 120px; }
+  a, button { color: inherit; font: inherit; }
+  .code { font: 400 13.5px/1.5 ui-monospace, "JetBrains Mono", monospace; }
+
+  .top { display: flex; justify-content: space-between; align-items: baseline; color: var(--ink-3); font-size: 14px; }
+  .top b { color: var(--ink); font-weight: 500; }
+
+  /* Status */
+  .status { margin-top: 72px; }
+  h1 { display: flex; align-items: center; gap: 16px; margin: 0; font-size: 44px; line-height: 1.1; font-weight: 500; letter-spacing: -0.015em; }
+  h1 svg { width: 40px; height: 40px; flex: none; }
+  .lede { margin: 16px 0 0; color: var(--ink-2); font-size: 18px; max-width: 34em; }
+  .said { margin: 14px 0 0; color: var(--ink-3); font-size: 14px; }
+  .said .code { color: var(--ink-2); }
+  .act { margin-top: 32px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .btn {
+    height: 48px; padding: 0 24px; border-radius: 8px; border: 0; cursor: pointer;
+    background: var(--teal); color: #fff; font-weight: 500; font-size: 16px;
+  }
+  .btn:hover { background: var(--teal-hover); }
+  .btn:focus-visible, .quiet:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+  .quiet { background: none; border: 0; padding: 0; cursor: pointer; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--rule); }
+  .quiet:hover { color: var(--ink); text-decoration-color: currentColor; }
+  .note { color: var(--ink-3); font-size: 14px; }
+
+  /* Linking */
+  .link { margin-top: 32px; display: grid; grid-template-columns: 248px 1fr; gap: 36px; align-items: start; }
+  .qr { background: #fff; padding: 16px; border-radius: 6px; line-height: 0; box-shadow: 0 0 0 1px var(--rule); }
+  .how { font-size: 17px; color: var(--ink-2); margin: 4px 0 0; }
+  .how b { color: var(--ink); font-weight: 500; }
+  .refresh { margin-top: 10px; color: var(--ink-3); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .alt { margin-top: 28px; font-size: 15px; color: var(--ink-2); }
+  .phone { display: flex; gap: 10px; margin-top: 10px; }
+  .phone input { height: 44px; flex: 1; min-width: 0; padding: 0 14px; border-radius: 8px; border: 1px solid var(--rule); background: transparent; color: var(--ink); font: inherit; }
+  .phone input:focus { outline: 2px solid var(--teal); outline-offset: 1px; border-color: transparent; }
+  .phone .btn { height: 44px; padding: 0 18px; }
+  .pair { margin-top: 12px; font: 500 30px/1 ui-monospace, "JetBrains Mono", monospace; letter-spacing: 0.12em; }
+
+  /* Archive */
+  .archive { margin-top: 88px; }
+  h2 { font-size: 15px; font-weight: 500; margin: 0 0 6px; }
+  .summary { margin: 0; color: var(--ink-2); max-width: 36em; }
+  .summary strong { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .paused { margin: 12px 0 0; color: var(--ochre); font-size: 15px; }
+
+  .msgs { list-style: none; margin: 28px 0 0; padding: 0; }
+  .msgs li { display: grid; grid-template-columns: 1fr auto; gap: 2px 24px; padding: 12px 12px; margin: 0 -12px; border-radius: 6px; }
+  .msgs li:hover { background: var(--hover); }
+  .msgs .chat { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .msgs time { color: var(--ink-3); font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; }
+  .msgs .text { grid-column: 1 / -1; color: var(--ink-2); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .msgs .chat, .msgs .text { unicode-bidi: plaintext; text-align: left; }
+  .msgs .who { color: var(--ink); }
+  .msgs .media { font-style: italic; }
+
+  footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--ink-3); font-size: 14px; }
+  footer .code { color: var(--ink-2); }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 34px; } h1 svg { width: 30px; height: 30px; }
+    .link { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="top"><b>WhatsApp MCP</b><span id="who"></span></div>
+
+  <section class="status" id="status"></section>
+
+  <section class="archive">
+    <h2>What your agents can read</h2>
+    <p class="summary" id="summary"></p>
+    <p class="paused" id="paused"></p>
+    <ul class="msgs" id="msgs"></ul>
+  </section>
+
+  <footer>
+    <span>MCP endpoint <span class="code">http://127.0.0.1:8765/mcp</span> <button class="quiet">Copy</button></span>
+    <button class="quiet" id="unlink">Unlink this device</button>
+  </footer>
+</main>
+
+<script>
+  const $ = (s) => document.querySelector(s);
+
+  // WhatsApp's own message-status marks, reused as the connection status.
+  const mark = {
+    read: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--tick)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Connected"><path d="M1.5 12.5l4.5 4.5L15.5 7.5"/><path d="M11 16l1 1L22.5 7.5"/></svg>`,
+    sent: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Offline"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
+    pending: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.8" stroke-linecap="round" aria-label="Waiting"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>`,
+    failed: `<svg viewBox="0 0 24 24" aria-label="Logged out"><circle cx="12" cy="12" r="10" fill="var(--brick)"/><path d="M12 7v6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="16.6" r="1.3" fill="#fff"/></svg>`,
+  };
+
+  const messages = [
+    { chat: "العائلة", who: "نورة", text: "العشاء عند جدتي يوم الجمعة، أكدوا لي الله يعافيكم", time: "09:41" },
+    { chat: "Faisal Alharbi", text: "Sent the slides, check the last section before the meeting", time: "09:33" },
+    { chat: "GDG Qassim organizers", who: "Reem", text: "Venue confirmed for the 14th. Need two more volunteers for check-in", time: "09:20" },
+    { chat: "محمد", who: "You", text: "On my way, 10 minutes", time: "09:02" },
+    { chat: "CS 499 graduation project", who: "Dr. Sultan", media: "Document", text: "Milestone-2-rubric.pdf", time: "08:47" },
+    { chat: "Sara", media: "Voice message", text: "0:42", time: "08:15" },
+    { chat: "Aramex", text: "Your shipment 4471 is out for delivery today", time: "07:58" },
+    { chat: "DragPath team", who: "Khalid", media: "Photo", text: "new onboarding screens", time: "Yesterday" },
+  ];
+
+  const QR = (size, seed) => {
+    const n = 33; let s = seed * 9301 + 49297;
+    const r = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+    const m = Array.from({ length: n }, () => Array.from({ length: n }, () => r() > 0.52));
+    const f = (y0, x0) => { for (let i = -1; i <= 7; i++) for (let j = -1; j <= 7; j++) { const y = y0 + i, x = x0 + j; if (y < 0 || x < 0 || y >= n || x >= n) continue;
+      m[y][x] = i >= 0 && i <= 6 && j >= 0 && j <= 6 && (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4)); } };
+    f(0, 0); f(0, n - 7); f(n - 7, 0);
+    const c = size / n; let out = "";
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (m[y][x]) out += `<rect x="${x * c}" y="${y * c}" width="${c + .3}" height="${c + .3}"/>`;
+    return `<svg width="${size}" height="${size}" fill="#111" shape-rendering="crispEdges" aria-label="QR code">${out}</svg>`;
+  };
+
+  let timer;
+  window.render = (state) => {
+    clearInterval(timer);
+    const linked = state === "connected" || state === "reconnecting" || state === "syncing";
+    $("#who").textContent = linked ? "Abdulrahman, +966 55 012 3456" : "No phone linked";
+    $("#unlink").hidden = !linked || state === "syncing";
+
+    const S = $("#status");
+    if (state === "connected") {
+      S.innerHTML = `<h1>${mark.read}Linked and archiving</h1>
+        <p class="lede">New messages are saved as they arrive. Connected since 08:57 today.</p>`;
+    } else if (state === "reconnecting") {
+      S.innerHTML = `<h1>${mark.sent}Offline, trying again</h1>
+        <p class="lede">WhatsApp can't be reached, usually because the network isn't up yet. Your agents can still read the archive.</p>
+        <p class="said">Last error <span class="code">lookup web.whatsapp.com: Temporary failure in name resolution</span></p>
+        <div class="act"><button class="btn">Try now</button><span class="note" id="nx">Next attempt in 14 seconds</span></div>`;
+      let n = 14; timer = setInterval(() => { n = n <= 1 ? 32 : n - 1; $("#nx").textContent = `Next attempt in ${n} seconds`; }, 1000);
+    } else if (state === "logged_out") {
+      S.innerHTML = `<h1>${mark.failed}Not linked</h1>
+        <p class="lede">WhatsApp logged this device out on 5 November at 05:48. Link it again to start archiving. Nothing already saved is lost.</p>
+        <p class="said">WhatsApp said <span class="code">401: logged out from another device</span></p>
+        <div class="act"><button class="btn" onclick="setMockState('linking')">Link device</button></div>`;
+    } else if (state === "linking") {
+      S.innerHTML = `<h1>${mark.pending}Scan with your phone</h1>
+        <div class="link">
+          <div><div class="qr" id="qr">${QR(216, 1)}</div><div class="refresh" id="rf">New code in 20 seconds</div></div>
+          <div>
+            <p class="how">In WhatsApp, open <b>Settings</b>, then <b>Linked devices</b>, tap <b>Link a device</b> and point the camera at this code.</p>
+            <div class="alt" id="alt">No camera? <button class="quiet" onclick="phone()">Link with your phone number</button></div>
+            <div class="act" style="margin-top:28px"><button class="quiet" onclick="setMockState('logged_out')">Cancel</button></div>
+          </div>
+        </div>`;
+      let left = 20, seed = 1;
+      timer = setInterval(() => {
+        left = left <= 1 ? (($("#qr").innerHTML = QR(216, ++seed)), 20) : left - 1;
+        $("#rf").textContent = `New code in ${left} second${left === 1 ? "" : "s"}`;
+      }, 1000);
+    } else if (state === "syncing") {
+      S.innerHTML = `<h1>${mark.read}Linked</h1>
+        <p class="lede">Your phone is sending your history. <strong style="font-weight:500;color:var(--ink)" id="cnt">3,418</strong> messages so far, the last batch came 12 seconds ago. Keep WhatsApp open; this stops by itself once nothing arrives for 90 seconds.</p>`;
+      let n = 3418; timer = setInterval(() => { n += Math.floor(Math.random() * 90); $("#cnt").textContent = n.toLocaleString("en"); }, 900);
+    }
+
+    const live = state === "connected" || state === "syncing";
+    $("#summary").innerHTML = `<strong>540</strong> chats and <strong>82,802</strong> messages, from 2 July 2022 to ${live ? "today at 09:41" : "30 October at 16:25"}. Your phone last sent history today at 09:12.`;
+    $("#paused").textContent = live ? "" : "Nothing new is being saved until the device is linked and online.";
+    $("#paused").hidden = live;
+    $("#msgs").innerHTML = messages.map((m) => `
+      <li><span class="chat">${m.chat}</span><time>${m.time}</time>
+        <span class="text">${m.who ? `<span class="who">${m.who}:</span> ` : ""}${m.media ? `<span class="media">${m.media}</span>, ` : ""}${m.text}</span></li>`).join("");
+  };
+
+  window.phone = () => {
+    $("#alt").innerHTML = `Your number, with country code
+      <div class="phone"><input value="+966 55 012 3456" aria-label="Phone number"><button class="btn" onclick="code()">Get code</button></div>`;
+  };
+  window.code = () => {
+    $("#alt").innerHTML = `On your phone choose <b style="color:var(--ink);font-weight:500">Link with phone number instead</b> and enter:<div class="pair">KD7F-29QX</div>`;
+  };
+</script>
+<script>window.MOCK_DEFAULT_STATE = "logged_out";</script>
+<script src="../_shared/preview.js"></script>
+<script src="variants.js"></script>
+<script src="mocknav.js"></script>
+</body>
+</html>
