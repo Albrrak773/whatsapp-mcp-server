@@ -32,9 +32,10 @@ type WA struct {
 	log     zerolog.Logger
 	dataDir string
 
-	loggedOut       atomic.Bool
-	lastHistoryEvt  atomic.Int64 // unix nanos of the last history sync blob processed
-	historyMessages atomic.Int64 // messages ingested from history sync since start
+	loggedOut       atomic.Pointer[string] // set to the reason once WhatsApp logs this device out
+	connectErr      atomic.Pointer[string] // last failed connect attempt; cleared once connected
+	lastHistoryEvt  atomic.Int64           // unix nanos of the last history sync blob processed
+	historyMessages atomic.Int64           // messages ingested from history sync since start
 }
 
 func init() {
@@ -61,7 +62,7 @@ func newWA(ctx context.Context, db *sql.DB, st *Store, dataDir string, log zerol
 	return w, nil
 }
 
-func (w *WA) LoggedIn() bool { return w.Client.Store.ID != nil && !w.loggedOut.Load() }
+func (w *WA) LoggedIn() bool { return w.Client.Store.ID != nil && w.loggedOut.Load() == nil }
 
 func (w *WA) handleEvent(rawEvt any) {
 	ctx := context.Background()
@@ -79,10 +80,12 @@ func (w *WA) handleEvent(rawEvt any) {
 	case *events.JoinedGroup:
 		_ = w.store.SetChatName(ctx, evt.JID.String(), true, evt.GroupName.Name)
 	case *events.Connected:
+		w.connectErr.Store(nil)
 		w.log.Info().Msg("connected to WhatsApp")
 		go w.refreshGroups()
 	case *events.LoggedOut:
-		w.loggedOut.Store(true)
+		reason := evt.Reason.String()
+		w.loggedOut.Store(&reason)
 		w.log.Error().Str("reason", evt.Reason.String()).Msg("logged out by WhatsApp; run `whatsapp-mcp login` again")
 	case *events.Disconnected:
 		w.log.Warn().Msg("disconnected from WhatsApp (will auto-reconnect)")

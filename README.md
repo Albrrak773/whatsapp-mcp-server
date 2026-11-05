@@ -112,6 +112,15 @@ enabled (`loginctl enable-linger $USER`). `make uninstall` removes the unit and 
 the archive. Without systemd, run `whatsapp-mcp serve --transport http` yourself. If the daemon is
 running, stdio instances started by other clients fall back to read-only mode automatically.
 
+`serve` answers from the archive right away and connects to WhatsApp in the background. If the
+first connect fails for a network reason (common at boot, before Wi-Fi is up), it retries with
+exponential backoff from 2s up to every 5 minutes until it connects. After that, whatsmeow
+reconnects by itself when the connection drops. The unit is ordered after
+`network-online.target`, but a systemd user session can't rely on that, so the retry is what
+covers boot. While offline, `whatsapp_status` shows the last error in `offline_reason`, and the
+tools that need the connection return it too. A logged-out session is not retried: the log and
+the tool errors say to re-link with `whatsapp-mcp login`.
+
 ### Flags and environment
 
 | | |
@@ -135,7 +144,8 @@ remove all data.
   can fail. Only attachments you've downloaded before are cached locally.
 - **Voice notes** come back as audio files (`.ogg`) and are not transcribed.
 - **Session expiry.** A linked device is logged out if the phone doesn't connect for about 14
-  days. After that, run `login` again (see above about stopping the server first).
+  days. After that, run `login` again (see above about stopping the server first). The server
+  keeps serving the archive in the meantime.
 - **Unofficial protocol.** whatsmeow is a reverse-engineered client. Reading your own messages is
   low-risk, but if WhatsApp changes the protocol, update the library with
   `go get go.mau.fi/whatsmeow@latest && make`.
