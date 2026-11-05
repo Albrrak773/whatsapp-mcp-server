@@ -61,7 +61,7 @@ func TestKeepConnectingRetriesUntilConnected(t *testing.T) {
 		}
 		return nil
 	}
-	err := keepConnecting(context.Background(), zerolog.Nop(), fastBackoff, connect, func(error) { fails++ })
+	err := keepConnecting(context.Background(), zerolog.Nop(), fastBackoff, connect, nil, func(error, int, time.Duration) { fails++ })
 	if err != nil || calls != 6 || fails != 5 {
 		t.Fatalf("err=%v calls=%d fails=%d, want nil/6/5", err, calls, fails)
 	}
@@ -70,9 +70,26 @@ func TestKeepConnectingRetriesUntilConnected(t *testing.T) {
 func TestKeepConnectingStopsOnPermanentError(t *testing.T) {
 	var calls int
 	connect := func(context.Context) error { calls++; return store.ErrDeviceDeleted }
-	err := keepConnecting(context.Background(), zerolog.Nop(), fastBackoff, connect, nil)
+	err := keepConnecting(context.Background(), zerolog.Nop(), fastBackoff, connect, nil, nil)
 	if !errors.Is(err, store.ErrDeviceDeleted) || calls != 1 {
 		t.Fatalf("err=%v calls=%d, want ErrDeviceDeleted after 1 call", err, calls)
+	}
+}
+
+func TestKeepConnectingWakeSkipsTheWait(t *testing.T) {
+	wake := make(chan struct{})
+	var calls atomic.Int32
+	connect := func(context.Context) error {
+		if calls.Add(1) == 1 {
+			go func() { wake <- struct{}{} }()
+			return syscall.ECONNREFUSED
+		}
+		return nil
+	}
+	start := time.Now()
+	err := keepConnecting(context.Background(), zerolog.Nop(), backoff{min: time.Hour, max: time.Hour}, connect, wake, nil)
+	if err != nil || calls.Load() != 2 || time.Since(start) > time.Second {
+		t.Fatalf("err=%v calls=%d took=%v, want a second attempt right after the wake", err, calls.Load(), time.Since(start))
 	}
 }
 
@@ -85,7 +102,7 @@ func TestKeepConnectingStopsOnCancel(t *testing.T) {
 		}
 		return syscall.ECONNREFUSED
 	}
-	err := keepConnecting(ctx, zerolog.Nop(), backoff{min: time.Millisecond, max: time.Hour}, connect, nil)
+	err := keepConnecting(ctx, zerolog.Nop(), backoff{min: time.Millisecond, max: time.Hour}, connect, nil, nil)
 	if !errors.Is(err, context.Canceled) || calls.Load() != 3 {
 		t.Fatalf("err=%v calls=%d, want Canceled after 3 calls", err, calls.Load())
 	}
@@ -101,14 +118,14 @@ func TestSimulatedNoNetworkStart(t *testing.T) {
 		dials.Add(1)
 		return nil, &net.OpError{Op: "dial", Net: network, Err: &net.DNSError{Err: "Temporary failure in name resolution", Name: "web.whatsapp.com", IsTemporary: true}}
 	}}}
-	wa.Client.SetWebsocketHTTPClient(noDNS)
-	wa.Client.SetPreLoginHTTPClient(noDNS)
+	wa.Client().SetWebsocketHTTPClient(noDNS)
+	wa.Client().SetPreLoginHTTPClient(noDNS)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	var failures atomic.Int32
 	go func() {
-		done <- keepConnecting(ctx, zerolog.Nop(), fastBackoff, wa.Client.ConnectContext, func(err error) {
+		done <- keepConnecting(ctx, zerolog.Nop(), fastBackoff, wa.Client().ConnectContext, nil, func(err error, _ int, _ time.Duration) {
 			msg := err.Error()
 			wa.connectErr.Store(&msg)
 			failures.Add(1)

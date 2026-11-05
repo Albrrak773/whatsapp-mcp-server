@@ -52,15 +52,15 @@ func setup(t *testing.T) (*mcp.ClientSession, *WA) {
 		t.Fatal(err)
 	}
 	own := types.NewADJID("491500000000", 0, 7)
-	wa.Client.Store.ID = &own
-	wa.Client.Store.Account = &waAdv.ADVSignedDeviceIdentity{Details: []byte{0}, AccountSignature: make([]byte, 64), AccountSignatureKey: make([]byte, 32), DeviceSignature: make([]byte, 64)}
-	if err := wa.Client.Store.Save(ctx); err != nil {
+	wa.Client().Store.ID = &own
+	wa.Client().Store.Account = &waAdv.ADVSignedDeviceIdentity{Details: []byte{0}, AccountSignature: make([]byte, 64), AccountSignatureKey: make([]byte, 32), DeviceSignature: make([]byte, 64)}
+	if err := wa.Client().Store.Save(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := wa.Client.Store.LIDs.PutLIDMapping(ctx, bobLID, bob); err != nil {
+	if err := wa.Client().Store.LIDs.PutLIDMapping(ctx, bobLID, bob); err != nil {
 		t.Fatal(err)
 	}
-	if err := wa.Client.Store.Contacts.PutContactName(ctx, alice, "Alice", "Alice Anders"); err != nil {
+	if err := wa.Client().Store.Contacts.PutContactName(ctx, alice, "Alice", "Alice Anders"); err != nil {
 		t.Fatal(err)
 	}
 

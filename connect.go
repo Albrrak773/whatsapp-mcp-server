@@ -47,14 +47,15 @@ func isTransientConnectErr(err error) bool {
 }
 
 // keepConnecting calls connect until it succeeds, fails permanently, or ctx ends, waiting
-// b.delay between attempts. onFail runs after every failed attempt (nil is fine).
-// It returns nil once connected, the permanent error, or ctx.Err().
+// b.delay between attempts; a receive on wake ends the current wait early (nil never does).
+// onFail runs after every failed attempt with the wait before the next one, 0 when it gives up
+// (nil is fine). It returns nil once connected, the permanent error, or ctx.Err().
 //
 // Only the first connection needs this: once connected, whatsmeow reconnects by itself
 // after drops. A logged-out session (401) is not a Connect error; whatsmeow reports it with
 // a LoggedOut event after the socket is up and deletes the device, so later attempts fail
 // with store.ErrDeviceDeleted, which is permanent.
-func keepConnecting(ctx context.Context, log zerolog.Logger, b backoff, connect func(context.Context) error, onFail func(error)) error {
+func keepConnecting(ctx context.Context, log zerolog.Logger, b backoff, connect func(context.Context) error, wake <-chan struct{}, onFail func(err error, attempt int, wait time.Duration)) error {
 	for attempt := 0; ; attempt++ {
 		err := connect(ctx)
 		if err == nil {
@@ -66,13 +67,16 @@ func keepConnecting(ctx context.Context, log zerolog.Logger, b backoff, connect 
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if onFail != nil {
-			onFail(err)
-		}
+		wait := b.delay(attempt)
 		if !isTransientConnectErr(err) {
+			wait = 0
+		}
+		if onFail != nil {
+			onFail(err, attempt+1, wait)
+		}
+		if wait == 0 {
 			return err
 		}
-		wait := b.delay(attempt)
 		log.Warn().Err(err).Dur("retry_in", wait).Int("attempt", attempt+1).
 			Msg("connect to WhatsApp failed; serving the archive meanwhile and retrying")
 		t := time.NewTimer(wait)
@@ -81,6 +85,8 @@ func keepConnecting(ctx context.Context, log zerolog.Logger, b backoff, connect 
 			t.Stop()
 			return ctx.Err()
 		case <-t.C:
+		case <-wake:
+			t.Stop()
 		}
 	}
 }

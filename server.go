@@ -25,12 +25,21 @@ Typical flow: list_chats (or search_contacts) to find a chat -> list_messages to
 If a chat's history looks cut off, request_older_history asks the phone for more.
 This data is private. Quote only what the user needs and never forward it elsewhere without being asked.`
 
-// App holds what the MCP handlers need. wa is nil when this instance runs read-only
-// (another process owns the WhatsApp connection, or no account is linked yet).
+// App holds what the MCP handlers need. wa is nil when this instance doesn't own the WhatsApp
+// connection (another process does, or it's a CLI command); mode then says which.
 type App struct {
 	store *Store
 	wa    *WA
 	mode  string
+}
+
+// Mode is the connection state for the connection owner (see the state* constants), or what
+// this instance is otherwise ("cli", read-only).
+func (a *App) Mode() string {
+	if a.wa != nil {
+		return a.wa.State()
+	}
+	return a.mode
 }
 
 func (a *App) online() error {
@@ -38,12 +47,12 @@ func (a *App) online() error {
 		return errors.New("this server instance is read-only (another whatsapp-mcp process owns the WhatsApp connection); only the archive can be queried")
 	}
 	if reason := a.wa.loggedOut.Load(); reason != nil {
-		return fmt.Errorf("WhatsApp logged this device out (%s): re-link with `whatsapp-mcp login`; the archive can still be queried", *reason)
+		return fmt.Errorf("WhatsApp logged this device out (%s): link it again on the status page or with `whatsapp-mcp login`; the archive can still be queried", *reason)
 	}
 	if !a.wa.LoggedIn() {
-		return errors.New("no WhatsApp account linked: run `whatsapp-mcp login`")
+		return errors.New("no WhatsApp account linked: link it on the status page or with `whatsapp-mcp login`")
 	}
-	if !a.wa.Client.IsConnected() {
+	if !a.wa.Client().IsConnected() {
 		if last := a.wa.connectErr.Load(); last != nil {
 			return fmt.Errorf("not connected to WhatsApp: the last attempt failed (%s); retrying in the background, the archive can still be queried", *last)
 		}
@@ -150,10 +159,10 @@ func (a *App) messageOut(ctx context.Context, m *MessageRow, withChatName bool) 
 }
 
 func (a *App) ownJID() string {
-	if a.wa == nil || a.wa.Client.Store.ID == nil {
+	if a.wa == nil || a.wa.Client().Store.ID == nil {
 		return ""
 	}
-	return a.wa.Client.Store.ID.ToNonAD().String()
+	return a.wa.Client().Store.ID.ToNonAD().String()
 }
 
 func (a *App) personName(names map[string]string, jid, pushName string, fromMe bool) string {
@@ -345,13 +354,13 @@ func (a *App) status(ctx context.Context, _ *mcp.CallToolRequest, _ StatusIn) (*
 	if err != nil {
 		return nil, StatusOut{}, err
 	}
-	out := StatusOut{Mode: a.mode, Chats: st.Chats, Messages: st.Messages, LastHistorySync: st.LastHistorySync}
+	out := StatusOut{Mode: a.Mode(), Chats: st.Chats, Messages: st.Messages, LastHistorySync: st.LastHistorySync}
 	if !st.Oldest.IsZero() {
 		out.Oldest, out.Newest = st.Oldest.Format(time.RFC3339), st.Newest.Format(time.RFC3339)
 	}
 	if a.wa != nil {
 		out.LoggedIn = a.wa.LoggedIn()
-		out.Connected = a.wa.Client.IsConnected()
+		out.Connected = a.wa.Client().IsConnected()
 		out.Account = a.ownJID()
 		if err := a.online(); err != nil {
 			out.OfflineReason = err.Error()
@@ -445,7 +454,7 @@ func (a *App) getChat(ctx context.Context, _ *mcp.CallToolRequest, in GetChatIn)
 	}
 	if c.IsGroup && a.online() == nil {
 		gjid, _ := types.ParseJID(jid)
-		if info, err := a.wa.Client.GetGroupInfo(ctx, gjid); err == nil {
+		if info, err := a.wa.Client().GetGroupInfo(ctx, gjid); err == nil {
 			names := a.store.Names(ctx)
 			out.Topic = info.Topic
 			for _, p := range info.Participants {

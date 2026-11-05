@@ -93,7 +93,8 @@ during that time. Ctrl-C is safe: everything received so far is already saved.
 `make service` daemon, or a stdio `serve` that an open MCP client session started), `login` stops
 with "another whatsapp-mcp process is connected". Stop that instance first
 (`systemctl --user stop whatsapp-mcp`, or close the client session), and start it again afterwards.
-This also applies when you link again after a session expired.
+With the daemon running, linking from the [status page](#status-page) is easier: nothing needs to
+be stopped.
 
 ### Long-running daemon (recommended with several clients)
 
@@ -120,6 +121,27 @@ reconnects by itself when the connection drops. The unit is ordered after
 covers boot. While offline, `whatsapp_status` shows the last error in `offline_reason`, and the
 tools that need the connection return it too. A logged-out session is not retried: the log and
 the tool errors say to re-link with `whatsapp-mcp login`.
+
+### Status page
+
+The HTTP transport also serves a page at `http://127.0.0.1:8765/` for the two things you do most:
+checking the link, and linking again after WhatsApp logs the device out (every few weeks, or when
+it's removed on the phone).
+
+- **Connection:** connected, reconnecting (with the last error and a countdown to the next try,
+  plus *Retry now*), logged out (with WhatsApp's reason, kept across restarts), or not linked.
+- **Link device:** shows WhatsApp's QR code in the browser and refreshes it as WhatsApp rotates
+  codes. *Link with your phone number instead* gives an 8-character pairing code. The running
+  server does the pairing itself, so the service keeps running. Tick *Ask my phone for its full
+  history* to get the same effect as `login --full-history`.
+- **After linking:** a counter of history messages arriving from the phone, until it goes quiet.
+- **What your agents can see:** archive size and the eight newest messages.
+
+The page shows private messages and can link a device, so it is guarded. On a loopback address,
+requests must also use a loopback `Host` (this blocks DNS rebinding). Actions must be same-origin
+JSON POSTs, so other websites can't trigger them. With `--token`, open the page once as
+`/?token=<token>`; it then sets an HTTP-only cookie. A read-only instance (another process owns the
+connection) shows the archive but can't link. stdio `serve` has no page.
 
 ### Flags and environment
 

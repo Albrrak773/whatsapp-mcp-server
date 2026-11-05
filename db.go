@@ -188,6 +188,13 @@ func (s *Store) SetMeta(ctx context.Context, key, value string) error {
 	return err
 }
 
+// Meta reads a value written with SetMeta; "" when unset.
+func (s *Store) Meta(ctx context.Context, key string) string {
+	var v string
+	_ = s.db.QueryRowContext(ctx, `SELECT value FROM mcp_meta WHERE key = ?`, key).Scan(&v)
+	return v
+}
+
 // ---------------------------------------------------------------------------
 // Name resolution
 

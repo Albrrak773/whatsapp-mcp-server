@@ -45,5 +45,6 @@ window.MOCK = {
   decisions: [
     "2026-11-05: Status card (A) won for its simple layout and flow. Its look was rejected as generic AI styling (owner: 'vomit AI look'), and so was the logo tile. Redone as 'Status, plain' (a2) with Anthropic's frontend-design skill: no cards, glow, pills, stat tiles, avatars, middle dots or uppercase labels.",
     "2026-11-05: 'Status, plain' rejected as too plain and dead. Cards are fine. Keep A's green Link device button and A's message card exactly, minus the 'Latest in the archive' subtitle. Built as 'Status card, cleaned' (a3).",
+    "2026-11-05: 'Status card, cleaned' approved and built into the server as web/index.html, served at / on the HTTP transport. Dropped from the mock: 'Request older history' (it works per chat, so it belongs to the MCP tool) and 'Unlink this device' (destructive; `whatsapp-mcp logout` covers it).",
   ],
 };

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -27,15 +28,33 @@ import (
 
 // WA owns the linked-device connection and mirrors everything it receives into the Store.
 type WA struct {
-	Client  *whatsmeow.Client
-	store   *Store
-	log     zerolog.Logger
-	dataDir string
+	client    atomic.Pointer[whatsmeow.Client] // replaced when a logged-out device is linked again
+	container *sqlstore.Container
+	store     *Store
+	log       zerolog.Logger
+	dataDir   string
 
 	loggedOut       atomic.Pointer[string] // set to the reason once WhatsApp logs this device out
 	connectErr      atomic.Pointer[string] // last failed connect attempt; cleared once connected
+	connectedAt     atomic.Int64           // unix nanos of the last Connected event, 0 while offline
+	offlineSince    atomic.Int64           // unix nanos when the connection was lost or first failed
+	retryAttempt    atomic.Int32           // failed startup connect attempts so far
+	nextRetryAt     atomic.Int64           // unix nanos of the next startup connect attempt
+	wake            chan struct{}          // cuts the current startup retry wait short
 	lastHistoryEvt  atomic.Int64           // unix nanos of the last history sync blob processed
 	historyMessages atomic.Int64           // messages ingested from history sync since start
+
+	linkMu sync.Mutex
+	link   linkState // the in-browser linking session, see link.go
+}
+
+// Client is the current whatsmeow client. Read it per use: linking again swaps it.
+func (w *WA) Client() *whatsmeow.Client { return w.client.Load() }
+
+func (w *WA) newClient(device *store.Device) *whatsmeow.Client {
+	client := whatsmeow.NewClient(device, waLog.Zerolog(w.log.With().Str("component", "whatsmeow").Logger()))
+	client.AddEventHandler(w.handleEvent)
+	return client
 }
 
 func init() {
@@ -56,13 +75,12 @@ func newWA(ctx context.Context, db *sql.DB, st *Store, dataDir string, log zerol
 	if err != nil {
 		return nil, fmt.Errorf("load device: %w", err)
 	}
-	client := whatsmeow.NewClient(device, waLog.Zerolog(log.With().Str("component", "whatsmeow").Logger()))
-	w := &WA{Client: client, store: st, log: log, dataDir: dataDir}
-	client.AddEventHandler(w.handleEvent)
+	w := &WA{container: container, store: st, log: log, dataDir: dataDir, wake: make(chan struct{})}
+	w.client.Store(w.newClient(device))
 	return w, nil
 }
 
-func (w *WA) LoggedIn() bool { return w.Client.Store.ID != nil && w.loggedOut.Load() == nil }
+func (w *WA) LoggedIn() bool { return w.Client().Store.ID != nil && w.loggedOut.Load() == nil }
 
 func (w *WA) handleEvent(rawEvt any) {
 	ctx := context.Background()
@@ -81,13 +99,21 @@ func (w *WA) handleEvent(rawEvt any) {
 		_ = w.store.SetChatName(ctx, evt.JID.String(), true, evt.GroupName.Name)
 	case *events.Connected:
 		w.connectErr.Store(nil)
+		w.connectedAt.Store(time.Now().UnixNano())
+		w.offlineSince.Store(0)
 		w.log.Info().Msg("connected to WhatsApp")
 		go w.refreshGroups()
 	case *events.LoggedOut:
 		reason := evt.Reason.String()
 		w.loggedOut.Store(&reason)
+		w.connectedAt.Store(0)
+		// Kept in the archive so the page can still say why after a restart.
+		_ = w.store.SetMeta(ctx, "logged_out_reason", reason)
+		_ = w.store.SetMeta(ctx, "logged_out_at", time.Now().Format(time.RFC3339))
 		w.log.Error().Str("reason", evt.Reason.String()).Msg("logged out by WhatsApp; run `whatsapp-mcp login` again")
 	case *events.Disconnected:
+		w.connectedAt.Store(0)
+		w.offlineSince.CompareAndSwap(0, time.Now().UnixNano())
 		w.log.Warn().Msg("disconnected from WhatsApp (will auto-reconnect)")
 	}
 }
@@ -95,7 +121,7 @@ func (w *WA) handleEvent(rawEvt any) {
 func (w *WA) refreshGroups() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	groups, err := w.Client.GetJoinedGroups(ctx)
+	groups, err := w.Client().GetJoinedGroups(ctx)
 	if err != nil {
 		w.log.Warn().Err(err).Msg("failed to fetch joined groups")
 		return
@@ -116,20 +142,20 @@ func (w *WA) canonical(ctx context.Context, jid types.JID, alt types.JID) types.
 	if alt.Server == types.DefaultUserServer {
 		return alt.ToNonAD()
 	}
-	if w.Client.Store.LIDs == nil {
+	if w.Client().Store.LIDs == nil {
 		return jid
 	}
-	if pn, err := w.Client.Store.LIDs.GetPNForLID(ctx, jid); err == nil && !pn.IsEmpty() {
+	if pn, err := w.Client().Store.LIDs.GetPNForLID(ctx, jid); err == nil && !pn.IsEmpty() {
 		return pn.ToNonAD()
 	}
 	return jid
 }
 
 func (w *WA) ownJID() types.JID {
-	if w.Client.Store.ID == nil {
+	if w.Client().Store.ID == nil {
 		return types.EmptyJID
 	}
-	return w.Client.Store.ID.ToNonAD()
+	return w.Client().Store.ID.ToNonAD()
 }
 
 func (w *WA) ingestMessage(ctx context.Context, evt *events.Message) error {
@@ -218,7 +244,7 @@ func (w *WA) ingestHistory(ctx context.Context, data *waHistorySync.HistorySync)
 			_ = w.store.TouchChat(ctx, chat.String(), isGroup, time.Unix(int64(ts), 0))
 		}
 		for _, hm := range conv.GetMessages() {
-			evt, err := w.Client.ParseWebMessage(rawChat, hm.GetMessage())
+			evt, err := w.Client().ParseWebMessage(rawChat, hm.GetMessage())
 			if err != nil {
 				continue
 			}
@@ -249,7 +275,7 @@ func (w *WA) RequestOlderHistory(ctx context.Context, chat types.JID, count int)
 	target := chat
 	// The phone keys many 1:1 threads by LID nowadays; ask using the address it knows.
 	if chat.Server == types.DefaultUserServer {
-		if lid, err := w.Client.Store.LIDs.GetLIDForPN(ctx, chat); err == nil && !lid.IsEmpty() {
+		if lid, err := w.Client().Store.LIDs.GetLIDForPN(ctx, chat); err == nil && !lid.IsEmpty() {
 			target = lid
 		}
 	}
@@ -258,7 +284,7 @@ func (w *WA) RequestOlderHistory(ctx context.Context, chat types.JID, count int)
 		ID:            oldest.ID,
 		Timestamp:     oldest.Timestamp,
 	}
-	_, err = w.Client.SendPeerMessage(ctx, w.Client.BuildHistorySyncRequest(info, count))
+	_, err = w.Client().SendPeerMessage(ctx, w.Client().BuildHistorySyncRequest(info, count))
 	return err
 }
 
@@ -277,7 +303,7 @@ func (w *WA) DownloadMedia(ctx context.Context, m *MessageRow) (string, []byte, 
 	if err := proto.Unmarshal(raw, &msg); err != nil {
 		return "", nil, fmt.Errorf("decode stored message: %w", err)
 	}
-	data, err := w.Client.DownloadAny(ctx, &msg)
+	data, err := w.Client().DownloadAny(ctx, &msg)
 	if err != nil {
 		return "", nil, fmt.Errorf("download failed (media older than a few weeks is often gone from WhatsApp's servers): %w", err)
 	}

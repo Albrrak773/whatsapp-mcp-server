@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhatsApp MCP</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2334b7f1' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 12.5l4.5 4.5L15.5 7.5'/%3E%3Cpath d='M11 16l1 1L22.5 7.5'/%3E%3C/svg%3E">
+<style>
+  /* Design: mocks/status-page/a3-status-card-cleaned.html. Dark by default, light follows the OS. */
+  :root {
+    --bg: #0c100f; --surface: #131917; --surface-2: #19211e; --surface-3: #212b27;
+    --border: #25302c; --border-strong: #33403b;
+    --text: #e9efed; --text-2: #b4c0bc; --muted: #7f8d88;
+    --accent: #2fd679; --accent-ink: #04210f;
+    --warn: #f2b13d; --warn-soft: rgba(242, 177, 61, 0.12); --danger: #f2646a;
+    --tick: #34b7f1;
+    --radius: 12px; --radius-lg: 18px;
+    --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+    --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f6f5; --surface: #fff; --surface-2: #f6f8f7; --surface-3: #edf1ef;
+      --border: #e1e7e4; --border-strong: #cdd6d2;
+      --text: #0f1815; --text-2: #3b4843; --muted: #6a7873;
+      --accent: #12a150; --accent-ink: #fff;
+      --warn: #b77a09; --warn-soft: rgba(214, 145, 18, 0.12); --danger: #d63c43;
+      --shadow: 0 1px 2px rgba(15, 24, 21, 0.04), 0 12px 32px -16px rgba(15, 24, 21, 0.18);
+      color-scheme: light;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  .page { max-width: 760px; margin: 0 auto; padding: 40px 24px 96px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+  .brand { font-weight: 650; font-size: 15px; }
+  .acct { color: var(--muted); font-size: 13px; display: flex; gap: 10px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 38px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--border-strong);
+    background: var(--surface-2); font-weight: 550; white-space: nowrap; transition: background .15s;
+  }
+  .btn:hover { background: var(--surface-3); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+  .btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, white); }
+  .btn-ghost { background: transparent; border-color: transparent; color: var(--text-2); padding: 0; }
+  .btn-ghost:hover { background: transparent; color: var(--text); }
+  .btn-lg { height: 46px; padding: 0 22px; font-size: 15px; border-radius: 12px; }
+  .btn svg { width: 16px; height: 16px; }
+
+  .hero { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: 32px; }
+  .hero h1 { display: flex; align-items: center; gap: 12px; font-size: 26px; line-height: 1.2; letter-spacing: -0.01em; margin: 0 0 8px; }
+  .hero h1 svg { width: 28px; height: 28px; flex: none; }
+  .detail { color: var(--text-2); margin: 0; max-width: 54ch; }
+  .since { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  .err { margin-top: 16px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border);
+         color: var(--text-2); font: 12.5px/1.5 var(--mono); overflow-wrap: anywhere; }
+  .err b { color: var(--muted); font: 500 12px var(--font); display: block; margin-bottom: 2px; }
+  .actions { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; align-items: center; }
+  .check { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; cursor: pointer; }
+  .check input { accent-color: var(--accent); }
+  .problem { color: var(--danger); font-size: 13px; margin: 12px 0 0; }
+
+  .link-grid { display: grid; grid-template-columns: auto 1fr; gap: 32px; align-items: center; margin-top: 20px; }
+  .qr { width: 248px; height: 248px; border-radius: 14px; background: #fff; display: grid; place-items: center; overflow: hidden; }
+  .qr img { width: 100%; height: 100%; image-rendering: pixelated; }
+  .qr .wait { color: #6a7873; font-size: 13px; }
+  .qr-timer { color: var(--muted); font-size: 12.5px; margin-top: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+  .steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; counter-reset: s; }
+  .steps li { display: flex; gap: 12px; color: var(--text-2); }
+  .steps li::before { counter-increment: s; content: counter(s); flex: none; width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 12px; font-weight: 650; background: var(--surface-3); color: var(--text); }
+  .steps b { color: var(--text); font-weight: 600; }
+  .alt { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+  .code-form { display: flex; gap: 8px; margin-top: 10px; }
+  .input { height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface-2); flex: 1; min-width: 0; }
+  .pair-code { display: flex; gap: 6px; margin-top: 12px; }
+  .pair-code span { width: 34px; height: 42px; display: grid; place-items: center; border-radius: 8px; background: var(--surface-2);
+    border: 1px solid var(--border-strong); font: 600 18px var(--mono); color: var(--text); }
+  .pair-code i { width: 10px; }
+  .pair-help { margin-top: 8px; }
+  .pair-help b { color: var(--text); }
+
+  .counter { display: flex; align-items: baseline; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  .counter strong { font-size: 44px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+  section.feed { margin-top: 36px; }
+  .feed h2 { font-size: 15px; margin: 0 0 10px; }
+  .summary { margin: -2px 0 14px; color: var(--muted); font-size: 13.5px; }
+  .summary b { color: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .stale { padding: 10px 16px; font-size: 12.5px; color: var(--warn); background: var(--warn-soft); border-bottom: 1px solid var(--border); }
+  .row { display: flex; gap: 12px; padding: 12px 16px; align-items: center; }
+  .row + .row { border-top: 1px solid var(--border); }
+  .row:hover { background: var(--surface-2); }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 13px; font-weight: 650; color: #fff; }
+  .row .body { flex: 1; min-width: 0; }
+  .row .top { display: flex; justify-content: space-between; gap: 12px; }
+  .row .chat { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .time { color: var(--muted); font-size: 12.5px; flex: none; }
+  .row .text { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; }
+  .row .who { color: var(--text); }
+  .kind { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 5px; background: var(--surface-3); color: var(--text-2); margin-right: 6px; }
+  .empty { padding: 28px 16px; color: var(--muted); text-align: center; }
+
+  footer { margin-top: 28px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; gap: 16px; flex-wrap: wrap; }
+  footer code { font-family: var(--mono); color: var(--text-2); background: var(--surface-2); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); }
+  .copy { all: unset; cursor: pointer; color: var(--muted); margin-left: 6px; }
+  .copy:hover { color: var(--text); }
+  .offline-banner { margin-bottom: 16px; padding: 10px 14px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
+
+  @media (max-width: 640px) {
+    .hero { padding: 24px; }
+    .link-grid { grid-template-columns: 1fr; justify-items: center; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <header><span class="brand">WhatsApp MCP</span><span class="acct" id="acct"></span></header>
+  <div class="offline-banner" id="unreachable" hidden>Can't reach the whatsapp-mcp server. Is the service running?</div>
+
+  <div class="hero" id="hero"></div>
+
+  <section class="feed">
+    <h2>What your agents can see</h2>
+    <p class="summary" id="summary"></p>
+    <div class="list" id="list"></div>
+  </section>
+
+  <footer>
+    <span>MCP endpoint <code id="endpoint"></code><button class="copy" id="copy">Copy</button></span>
+  </footer>
+</main>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+// WhatsApp's own message-status marks, reused as the connection status.
+const mark = {
+  read: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--tick)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Connected"><path d="M1.5 12.5l4.5 4.5L15.5 7.5"/><path d="M11 16l1 1L22.5 7.5"/></svg>',
+  sent: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Offline"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  pending: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" aria-label="Waiting"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  failed: '<svg viewBox="0 0 24 24" aria-label="Not linked"><circle cx="12" cy="12" r="10" fill="var(--danger)"/><path d="M12 7v6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="16.6" r="1.3" fill="#fff"/></svg>',
+};
+const icon = {
+  link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg>',
+};
+
+// ---- Time formatting -------------------------------------------------------
+const sameDay = (a, b) => a.toDateString() === b.toDateString();
+const hm = (d) => d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+function when(iso) {
+  if (!iso) return "";
+  const d = new Date(iso), now = new Date(), y = new Date(now - 864e5);
+  if (sameDay(d, now)) return `today at ${hm(d)}`;
+  if (sameDay(d, y)) return `yesterday at ${hm(d)}`;
+  return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: d.getFullYear() === now.getFullYear() ? undefined : "numeric" })} at ${hm(d)}`;
+}
+function listTime(iso) {
+  const d = new Date(iso), now = new Date();
+  if (sameDay(d, now)) return hm(d);
+  if (sameDay(d, new Date(now - 864e5))) return "Yesterday";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+const secondsUntil = (iso) => Math.max(0, Math.round((new Date(iso) - Date.now()) / 1000));
+
+// ---- API -------------------------------------------------------------------
+let st = null;        // last status from the server
+let heroKey = "";     // re-render the card only when this changes, so inputs keep their state
+let pair = { open: false, phone: "", code: "", error: "", busy: false };
+let fullHistory = false;
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+let pollTimer;
+async function poll() {
+  clearTimeout(pollTimer);
+  try {
+    apply(await api("/api/status"));
+    $("#unreachable").hidden = true;
+  } catch {
+    $("#unreachable").hidden = false;
+  }
+  const fast = st && ["linking", "syncing", "reconnecting"].includes(st.state);
+  pollTimer = setTimeout(poll, fast ? 1000 : 4000);
+}
+
+async function act(path, body, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    apply(await api(path, body));
+    actionError = "";
+  } catch (e) {
+    actionError = e.message;
+    heroKey = "";
+    render();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+  poll();
+}
+let actionError = "";
+
+function apply(next) {
+  st = next;
+  if (st.state !== "linking") pair = { open: false, phone: pair.phone, code: "", error: "", busy: false };
+  render();
+}
+
+// ---- Rendering -------------------------------------------------------------
+function render() {
+  if (!st) return;
+  const linked = ["connected", "reconnecting", "syncing"].includes(st.state);
+  $("#acct").innerHTML = linked && st.account
+    ? [st.name, st.account].filter(Boolean).map((v) => `<bdi>${esc(v)}</bdi>`).join("")
+    : "No device linked";
+
+  const key = [st.state, st.error, st.link?.error, actionError, pair.open, pair.code, pair.error, pair.busy, !!st.link?.qr].join("|");
+  if (key !== heroKey) {
+    heroKey = key;
+    $("#hero").innerHTML = heroHTML();
+  }
+  patchHero();
+  renderFeed(linked && st.state !== "reconnecting");
+  $("#endpoint").textContent = st.endpoint;
+}
+
+function heroHTML() {
+  const problem = actionError ? `<p class="problem">${esc(actionError)}</p>` : "";
+  const linkButton = (label) => `
+    <div class="actions">
+      <button class="btn btn-primary btn-lg" data-do="link">${icon.link}${label}</button>
+      <label class="check"><input type="checkbox" data-full ${fullHistory ? "checked" : ""}> Ask my phone for its full history (slower)</label>
+    </div>`;
+  switch (st.state) {
+    case "connected":
+      return `<h1>${mark.read}WhatsApp is connected</h1>
+        <p class="detail">Live messages are being archived.</p>
+        <p class="since" data-since></p>${problem}`;
+    case "syncing":
+      return `<h1>${mark.read}Linked. Receiving history from your phone</h1>
+        <p class="detail">Keep WhatsApp open on your phone. This finishes on its own once nothing new arrives for 90 seconds.</p>
+        <div class="counter"><strong data-stored></strong><span class="since" style="margin:0" data-last></span></div>`;
+    case "reconnecting":
+      return `<h1>${mark.sent}${st.error ? "Can't reach WhatsApp" : "Reconnecting to WhatsApp"}</h1>
+        <p class="detail">${st.error ? "Retrying in the background. Your agents can still read the archive." : "The connection dropped and is being restored. Your agents can still read the archive."}</p>
+        <p class="since" data-since></p>
+        ${st.error ? `<div class="err"><b>Last error</b>${esc(st.error)}</div>` : ""}
+        <div class="actions"><button class="btn btn-primary" data-do="retry">${icon.refresh}Retry now</button><span class="since" style="margin:0" data-retry></span></div>${problem}`;
+    case "logged_out":
+      return `<h1>${mark.failed}WhatsApp logged this device out</h1>
+        <p class="detail">This happens every few weeks, or when the device is removed on your phone. Link it again to resume archiving. Nothing in the archive is lost.</p>
+        <p class="since" data-since></p>
+        ${st.error ? `<div class="err"><b>Reason from WhatsApp</b>${esc(st.error)}</div>` : ""}
+        ${linkError()}${linkButton("Link device")}${problem}`;
+    case "not_linked":
+      return `<h1>${mark.failed}No WhatsApp account linked</h1>
+        <p class="detail">Link your phone to start archiving. Your agents can read whatever is already in the archive.</p>
+        ${linkError()}${linkButton("Link device")}${problem}`;
+    case "linking":
+      return `<h1>${mark.pending}Scan with your phone</h1>
+        <div class="link-grid">
+          <div>
+            <div class="qr">${st.link?.qr ? `<img alt="WhatsApp linking QR code" data-qr>` : `<span class="wait">Getting a code…</span>`}</div>
+            <div class="qr-timer" data-qrt></div>
+          </div>
+          <div>
+            <ol class="steps">
+              <li><span>Open <b>WhatsApp</b> on your phone</span></li>
+              <li><span>Go to <b>Settings › Linked devices</b></span></li>
+              <li><span>Tap <b>Link a device</b> and point the camera here</span></li>
+            </ol>
+            <div class="alt">${pairHTML()}</div>
+            <div class="actions" style="margin-top:20px"><button class="btn btn-ghost" data-do="cancel">Cancel</button></div>
+            ${problem}
+          </div>
+        </div>`;
+    default: // read_only
+      return `<h1>${mark.sent}Read-only</h1>
+        <p class="detail">Another whatsapp-mcp process owns the WhatsApp connection, so this one can only read the archive. Open the page served by that process to link or check the connection.</p>`;
+  }
+}
+
+const linkError = () => st.link?.error ? `<p class="problem">${esc(st.link.error)}</p>` : "";
+
+function pairHTML() {
+  if (pair.code) {
+    const chars = pair.code.replace("-", "").split("");
+    return `<div class="pair-code">${chars.map((c, i) => (i === 4 ? "<i></i>" : "") + `<span>${esc(c)}</span>`).join("")}</div>
+      <div class="pair-help">On your phone: Link a device › <b>Link with phone number instead</b>, then enter this code.</div>`;
+  }
+  return `Camera not handy? Link with your phone number instead.
+    <form class="code-form" data-pair>
+      <input class="input" name="phone" placeholder="+966 5x xxx xxxx" value="${esc(pair.phone)}" inputmode="tel" autocomplete="tel" aria-label="Phone number with country code">
+      <button class="btn" ${pair.busy || !st.link?.qr ? "disabled" : ""}>${pair.busy ? "Getting code…" : "Get code"}</button>
+    </form>
+    ${pair.error ? `<p class="problem">${esc(pair.error)}</p>` : ""}`;
+}
+
+// Values that change every second update in place, without rebuilding the card.
+function patchHero() {
+  if (!st) return;
+  const set = (sel, text) => { const el = $("#hero " + sel); if (el) el.textContent = text; };
+  const sinceText = {
+    connected: st.since && `Connected since ${when(st.since)}`,
+    reconnecting: st.since && `Offline since ${when(st.since)}`,
+    logged_out: st.since && `Logged out ${when(st.since)}`,
+  }[st.state];
+  set("[data-since]", sinceText || "");
+  if (st.state === "reconnecting") {
+    set("[data-retry]", st.retry ? `Next try in ${secondsUntil(st.retry.next_at)}s (attempt ${st.retry.attempt})` : "");
+  }
+  if (st.state === "syncing" && st.history) {
+    set("[data-stored]", st.history.stored.toLocaleString("en"));
+    set("[data-last]", `messages stored${st.history.last_at ? `, last batch ${secondsAgo(st.history.last_at)}` : ""}`);
+  }
+  if (st.state === "linking" && st.link?.qr) {
+    const img = $("#hero [data-qr]");
+    if (img && img.getAttribute("src") !== st.link.qr) img.src = st.link.qr;
+    const left = st.link.expires_at ? secondsUntil(st.link.expires_at) : 0;
+    set("[data-qrt]", left > 0 ? `New code in ${left}s` : "Getting a new code…");
+  }
+}
+const secondsAgo = (iso) => { const s = Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000)); return s < 2 ? "just now" : `${s}s ago`; };
+
+const kindLabel = { image: "Photo", video: "Video", gif: "GIF", audio: "Audio", voice: "Voice", video_note: "Video note", document: "Document",
+  sticker: "Sticker", location: "Location", live_location: "Live location", contact: "Contact", poll: "Poll", event: "Event", group_invite: "Invite" };
+const palette = ["#7c5cff", "#e0703a", "#2f9e8f", "#3a7be0", "#c2410c", "#d6457a", "#0e9f6e", "#8b5cf6", "#b45309", "#0284c7"];
+function colorFor(jid) {
+  let h = 0;
+  for (const c of jid) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return palette[h % palette.length];
+}
+function initials(name) {
+  const words = name.replace(/[^\p{L}\p{N}\s]/gu, "").trim().split(/\s+/).filter(Boolean);
+  const first = words.map((w) => [...w][0]);
+  if (/\p{Script=Arabic}/u.test(first[0] || "")) return first[0];
+  return (first.slice(0, 2).join("") || "#").toUpperCase();
+}
+function body(m) {
+  let text = m.text;
+  if (!text && m.kind === "voice" && m.seconds) text = `Voice message, ${Math.floor(m.seconds / 60)}:${String(m.seconds % 60).padStart(2, "0")}`;
+  if (!text) text = m.file_name || "";
+  const who = m.from_me ? "You" : m.group ? m.sender : "";
+  const kind = kindLabel[m.kind];
+  return `${who ? `<bdi class="who">${esc(who)}</bdi>: ` : ""}${kind ? `<span class="kind">${kind}</span>` : ""}<bdi>${esc(text)}</bdi>`;
+}
+
+function renderFeed(live) {
+  const a = st.archive;
+  const since = a.oldest ? ` since ${new Date(a.oldest).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` : "";
+  const sync = a.last_history_sync ? ` Last history sync from your phone ${when(a.last_history_sync)}.` : "";
+  $("#summary").innerHTML = `<b>${a.chats.toLocaleString("en")}</b> chats and <b>${a.messages.toLocaleString("en")}</b> messages${since}.${sync}`;
+  const paused = !live && a.newest
+    ? `<div class="stale">Archiving is paused. Messages after ${esc(when(a.newest))} will appear once the device is connected.</div>` : "";
+  const rows = st.messages.map((m) => `
+    <div class="row">
+      <div class="avatar" style="background:${colorFor(m.chat_jid)}">${esc(initials(m.chat))}</div>
+      <div class="body">
+        <div class="top"><span class="chat"><bdi>${esc(m.chat)}</bdi></span><span class="time">${esc(listTime(m.time))}</span></div>
+        <div class="text">${body(m)}</div>
+      </div>
+    </div>`).join("");
+  $("#list").innerHTML = paused + (rows || `<div class="empty">No messages archived yet. They appear here once a device is linked.</div>`);
+}
+
+// ---- Events ----------------------------------------------------------------
+$("#hero").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-do]");
+  if (!btn) return;
+  actionError = "";
+  if (btn.dataset.do === "link") act("/api/link", { full_history: fullHistory }, btn);
+  if (btn.dataset.do === "cancel") act("/api/link/cancel", {}, btn);
+  if (btn.dataset.do === "retry") act("/api/retry", {}, btn);
+});
+$("#hero").addEventListener("change", (e) => { if (e.target.matches("[data-full]")) fullHistory = e.target.checked; });
+$("#hero").addEventListener("input", (e) => { if (e.target.name === "phone") pair.phone = e.target.value; });
+$("#hero").addEventListener("submit", async (e) => {
+  if (!e.target.matches("[data-pair]")) return;
+  e.preventDefault();
+  pair.busy = true; pair.error = ""; render();
+  try {
+    pair.code = (await api("/api/link/phone", { phone: pair.phone })).code;
+  } catch (err) {
+    pair.error = err.message;
+  }
+  pair.busy = false; render();
+});
+$("#copy").addEventListener("click", async () => {
+  await navigator.clipboard.writeText(st?.endpoint || "");
+  $("#copy").textContent = "Copied";
+  setTimeout(() => ($("#copy").textContent = "Copy"), 1500);
+});
+
+setInterval(patchHero, 1000);
+poll();
+</script>
+</body>
+</html>
