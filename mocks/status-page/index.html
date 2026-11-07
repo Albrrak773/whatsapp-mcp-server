@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mock</title>
+<!-- The index page for one mock topic. Reads variants.js. Tooling, not design: copy as is. -->
+<style>
+  :root { color-scheme: dark light; --bg: #0e0e10; --card: #18181c; --line: #2a2a31;
+    --text: #f2f2f2; --dim: #a9a9b2; --link: #8ab4ff; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f6f7; --card: #fff; --line: #dcdce1; --text: #17171a; --dim: #5c5c66;
+      --link: #1d4ed8; }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); padding: 48px 24px 80px;
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 13px; font-weight: 600; color: var(--dim); }
+  .question { margin-top: 6px; font-size: 26px; line-height: 1.3; font-weight: 650; }
+  h2 { margin: 40px 0 12px; font-size: 13px; font-weight: 600; color: var(--dim); }
+  .variants { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .variant { display: block; padding: 16px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--card); color: inherit; text-decoration: none; }
+  .variant:hover, .variant:focus-visible { border-color: var(--link); outline: none; }
+  .variant strong { display: block; font-size: 17px; }
+  .variant .axis { color: var(--dim); margin-top: 2px; }
+  .variant dl { margin-top: 12px; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px;
+    font-size: 14px; }
+  .variant dt { color: var(--dim); }
+  .variant .file { margin-top: 12px; font: 12px/1 ui-monospace, monospace; color: var(--dim);
+    direction: ltr; text-align: start; }
+  ol { padding-inline-start: 20px; display: grid; gap: 8px; }
+  .empty { color: var(--dim); }
+  [dir="auto"] { unicode-bidi: plaintext; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="topic" dir="auto"></h1>
+  <p class="question" id="question" dir="auto"></p>
+
+  <h2>Variants</h2>
+  <div class="variants" id="variants"></div>
+
+  <h2>Decided</h2>
+  <div id="decisions"></div>
+</main>
+<script src="variants.js"></script>
+<script>
+  const mock = window.MOCK || { variants: [], decisions: [] };
+  const el = (tag, text, cls) => {
+    const node = document.createElement(tag);
+    if (text) node.textContent = text;
+    if (cls) node.className = cls;
+    node.dir = "auto";
+    return node;
+  };
+
+  document.title = `${mock.topic || "Mock"} · mock`;
+  document.getElementById("topic").textContent = mock.topic || "";
+  document.getElementById("question").textContent = mock.question || "";
+
+  const list = document.getElementById("variants");
+  for (const v of mock.variants || []) {
+    const card = document.createElement("a");
+    card.className = "variant";
+    card.href = v.file;
+    card.append(el("strong", v.name), el("div", v.axis, "axis"));
+    const facts = document.createElement("dl");
+    if (v.good) facts.append(el("dt", "Good at"), el("dd", v.good));
+    if (v.cost) facts.append(el("dt", "Costs"), el("dd", v.cost));
+    if (facts.children.length) card.append(facts);
+    card.append(el("div", v.file, "file"));
+    list.append(card);
+  }
+
+  const decided = document.getElementById("decisions");
+  const decisions = mock.decisions || [];
+  if (decisions.length === 0) {
+    decided.append(el("p", "Nothing yet.", "empty"));
+  } else {
+    const ol = document.createElement("ol");
+    for (const d of decisions) ol.append(el("li", d));
+    decided.append(ol);
+  }
+</script>
+</body>
+</html>

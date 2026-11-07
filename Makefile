@@ -19,7 +19,7 @@ VERSION ?= 0.1.0$(if $(GIT_REV),+$(GIT_REV),-dev)
 # go-sqlite3 is a cgo package: cgo must be on and a C compiler present.
 export CGO_ENABLED := 1
 GOFLAGS_BUILD := -trimpath -ldflags "-s -w -X main.version=$(VERSION)"
-SOURCES := $(wildcard *.go) go.mod go.sum
+SOURCES := $(wildcard *.go web/*) go.mod go.sum
 
 .PHONY: all build check fmt vet test install service service-local service-start uninstall clean
 

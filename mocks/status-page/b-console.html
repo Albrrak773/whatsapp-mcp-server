@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B · Console — whatsapp-mcp</title>
+<link rel="stylesheet" href="../_shared/tokens.css">
+<style>
+  body { height: 100vh; overflow: hidden; }
+  .shell { display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
+  aside { border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+  .side-scroll { overflow: auto; padding: 20px; flex: 1; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; padding: 18px 20px; border-bottom: 1px solid var(--border); }
+  .brand .logo { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; color: var(--accent-ink); }
+  .brand .logo svg { width: 16px; height: 16px; }
+
+  .conn { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; background: var(--surface-2); }
+  .conn-head { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; }
+  .conn p { margin: 8px 0 0; color: var(--text-2); font-size: 13px; }
+  .conn .err { margin-top: 10px; font: 12px var(--mono); color: var(--text-2); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; }
+  .conn .btn { width: 100%; margin-top: 14px; }
+
+  dl { margin: 18px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 9px 14px; font-size: 13px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  h3 { font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 26px 0 10px; font-weight: 600; }
+  .events { list-style: none; margin: 0; padding: 0; }
+  .events li { display: grid; grid-template-columns: 14px 1fr; gap: 10px; padding-bottom: 12px; position: relative; }
+  .events li::after { content: ""; position: absolute; left: 3.5px; top: 14px; bottom: 0; width: 1px; background: var(--border); }
+  .events li:last-child::after { display: none; }
+  .events .dot { margin-top: 6px; box-shadow: none !important; animation: none !important; }
+  .events .dot.muted { background: var(--border-strong); }
+  .events .t { color: var(--muted); font-size: 12px; }
+  .events .x { font-size: 13px; }
+  .events .s { color: var(--muted); font-size: 12px; }
+
+  .side-foot { padding: 14px 20px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); display: flex; justify-content: space-between; gap: 10px; }
+  .side-foot code { font-family: var(--mono); color: var(--text-2); }
+
+  main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .banner { display: flex; align-items: center; gap: 14px; padding: 12px 24px; border-bottom: 1px solid var(--border); }
+  .banner.bad { background: var(--danger-soft); }
+  .banner.warn { background: var(--warn-soft); }
+  .banner .msg { flex: 1; font-size: 13.5px; }
+  .banner b { font-weight: 650; }
+  .toolbar { display: flex; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--border); }
+  .toolbar h1 { font-size: 17px; margin: 0; flex: 1; }
+  .search { height: 34px; width: 240px; padding: 0 12px 0 32px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%237f8d88' stroke-width='2' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E") no-repeat 11px center; }
+
+  .feed { overflow: auto; flex: 1; padding: 8px 12px 80px; }
+  .day { color: var(--muted); font-size: 12px; font-weight: 600; padding: 14px 12px 6px; }
+  .msg-row { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; padding: 10px 12px; border-radius: 10px; align-items: start; }
+  .msg-row:hover { background: var(--surface); }
+  .msg-row .avatar { width: 40px; height: 40px; }
+  .msg-row .who { font-weight: 600; display: flex; gap: 8px; align-items: center; min-width: 0; }
+  .msg-row .who .chat { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag { font-size: 11px; font-weight: 600; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; flex: none; }
+  .msg-row .text { color: var(--text-2); margin-top: 1px; }
+  .msg-row .time { color: var(--muted); font-size: 12.5px; }
+  .kind { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 5px; background: var(--surface-3); color: var(--text-2); margin-right: 6px; }
+
+  /* Dialog */
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(3px); display: grid; place-items: center; z-index: 50; }
+  .dialog { width: 440px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); padding: 24px; }
+  .dialog-head { display: flex; justify-content: space-between; align-items: center; }
+  .dialog h2 { font-size: 18px; margin: 0; }
+  .x-btn { all: unset; cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1; padding: 4px 8px; border-radius: 6px; }
+  .x-btn:hover { background: var(--surface-2); }
+  .dialog .seg { margin: 18px 0; width: 100%; }
+  .dialog .seg button { flex: 1; }
+  .qr-box { display: grid; justify-items: center; gap: 12px; }
+  .qr-meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; }
+  .bar { width: 216px; height: 4px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); transition: width 1s linear; }
+  .hint { text-align: center; color: var(--text-2); font-size: 13.5px; margin: 16px 0 0; }
+  .hint b { color: var(--text); }
+  .input { height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface-2); width: 100%; }
+  .pair-code { display: flex; gap: 6px; justify-content: center; margin: 18px 0 6px; }
+  .pair-code span { width: 38px; height: 48px; display: grid; place-items: center; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border-strong); font: 600 20px var(--mono); }
+  .pair-code i { width: 10px; }
+  .sync-big { text-align: center; padding: 10px 0 4px; }
+  .sync-big strong { display: block; font-size: 46px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .check { width: 52px; height: 52px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin: 4px auto 14px; }
+  .check svg { width: 26px; height: 26px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="brand"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.6 7.3L3 20.5l1.8-5.2A8.4 8.4 0 1 1 21 11.5z"/></svg></div>whatsapp-mcp</div>
+    <div class="side-scroll">
+      <div class="conn" id="conn"></div>
+      <dl id="facts"></dl>
+      <h3>Connection log</h3>
+      <ul class="events" id="events"></ul>
+    </div>
+    <div class="side-foot"><span>Endpoint <code id="url"></code></span><span>v0.1.0</span></div>
+  </aside>
+
+  <main>
+    <div id="banner"></div>
+    <div class="toolbar">
+      <h1>Recent messages</h1>
+      <div class="seg"><button aria-pressed="true">All</button><button>Direct</button><button>Groups</button></div>
+      <input class="search" placeholder="Search the archive">
+    </div>
+    <div class="feed" id="feed"></div>
+  </main>
+</div>
+<div id="modal"></div>
+
+<script src="../_shared/data.js"></script>
+<script>
+  const $ = (s) => document.querySelector(s);
+  const linkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>';
+  let timer;
+
+  window.render = (name) => {
+    clearInterval(timer);
+    const st = WA.states[name];
+    const a = WA.archive;
+    const linked = name === "connected" || name === "reconnecting" || name === "syncing";
+    const shown = name === "linking" || name === "syncing" ? "logged_out" : name; // the sidebar behind the dialog
+    const bs = name === "syncing" ? WA.states.connected : WA.states[shown];
+
+    const btn = {
+      connected: `<button class="btn">Request older history…</button>`,
+      reconnecting: `<button class="btn">Retry now</button>`,
+      logged_out: `<button class="btn btn-primary" onclick="setMockState('linking')">${linkIcon}Link device</button>`,
+    }[name === "syncing" ? "connected" : shown];
+    $("#conn").innerHTML = `
+      <div class="conn-head"><span class="dot ${bs.tone}"></span>${bs.label}</div>
+      <p>${{ connected: "Archiving live messages.", reconnecting: `Retrying in the background · attempt ${WA.states.reconnecting.retry.attempt}, next in 14s`, logged_out: "WhatsApp logged this device out. Link it again to resume archiving." }[name === "syncing" ? "connected" : shown]}</p>
+      ${bs.error ? `<div class="err">${bs.error}</div>` : ""}
+      ${btn}`;
+
+    $("#facts").innerHTML = [
+      ["Account", linked ? WA.account : "—"],
+      ["Device", linked ? WA.device : "—"],
+      ["Chats", a.chats.toLocaleString()],
+      ["Messages", a.messages.toLocaleString()],
+      ["Archive covers", `${a.oldest} → ${linked ? "now" : "30 Oct"}`],
+      ["Last history sync", a.lastHistorySync],
+      ["Media cache", a.media],
+    ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+
+    const ev = name === "logged_out" || name === "linking"
+      ? [{ t: "5 Nov 05:48", tone: "bad", text: "Logged out by WhatsApp", sub: "401: logged out from another device" }, ...WA.events]
+      : name === "reconnecting"
+      ? [{ t: "08:55", tone: "warn", text: "Network unreachable, retrying", sub: "attempt 4 · next in 14s" }, ...WA.events.slice(2)]
+      : WA.events;
+    $("#events").innerHTML = ev.map((e) => `<li><span class="dot ${e.tone}"></span><div><div class="x">${e.text}</div><div class="s">${e.t}${e.sub ? " · " + e.sub : ""}</div></div></li>`).join("");
+    $("#url").textContent = "127.0.0.1:8765/mcp";
+
+    $("#banner").innerHTML = shown === "logged_out" && name !== "syncing"
+      ? `<div class="banner bad"><span class="dot bad"></span><div class="msg"><b>Archiving is paused.</b> Your agents can still read everything up to 30 Oct, 16:25.</div><button class="btn btn-primary" onclick="setMockState('linking')">${linkIcon}Link device</button></div>`
+      : name === "reconnecting"
+      ? `<div class="banner warn"><span class="dot warn"></span><div class="msg"><b>Offline.</b> New messages will be archived as soon as the network is back.</div></div>`
+      : "";
+
+    $("#feed").innerHTML = `<div class="day">Today</div>` + WA.messages.map((m, i) => (i === 7 ? `<div class="day">Yesterday</div>` : "") + `
+      <div class="msg-row">
+        <div class="avatar" style="background:${m.color}">${WA.initials(m.chat)}</div>
+        <div style="min-width:0">
+          <div class="who"><span class="chat">${m.chat}</span>${m.group ? '<span class="tag">group</span>' : ""}</div>
+          <div class="text">${m.group ? `<span style="color:var(--text)">${m.sender}:</span> ` : m.fromMe ? "You: " : ""}${m.kind ? `<span class="kind">${m.kind}</span>` : ""}${m.text}</div>
+        </div>
+        <span class="time">${m.time}</span>
+      </div>`).join("");
+
+    renderModal(name);
+  };
+
+  function renderModal(name) {
+    const m = $("#modal");
+    if (name === "linking") {
+      m.innerHTML = `<div class="scrim"><div class="dialog">
+        <div class="dialog-head"><h2>Link WhatsApp</h2><button class="x-btn" onclick="setMockState('logged_out')">×</button></div>
+        <div class="seg" id="tabs"><button aria-pressed="true" data-t="qr">QR code</button><button aria-pressed="false" data-t="code">Phone number</button></div>
+        <div id="tab"></div>
+      </div></div>`;
+      $("#tabs").onclick = (e) => { if (!e.target.dataset.t) return; $("#tabs").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b === e.target)); tab(e.target.dataset.t); };
+      tab("qr");
+    } else if (name === "syncing") {
+      const h = WA.states.syncing.history;
+      m.innerHTML = `<div class="scrim"><div class="dialog">
+        <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
+        <h2 style="text-align:center">Linked as ${WA.pushName}</h2>
+        <p class="hint">Your phone is sending history. Keep WhatsApp open.</p>
+        <div class="sync-big"><strong id="cnt">${h.stored.toLocaleString()}</strong><span class="muted">messages stored · last batch ${h.quietFor}s ago</span></div>
+        <p class="hint" style="font-size:12.5px;color:var(--muted)">You can close this. History keeps arriving in the background.</p>
+        <button class="btn" style="width:100%;margin-top:14px" onclick="setMockState('connected')">Done</button>
+      </div></div>`;
+      let n = h.stored;
+      timer = setInterval(() => { n += Math.floor(Math.random() * 90); $("#cnt").textContent = n.toLocaleString(); }, 900);
+    } else m.innerHTML = "";
+  }
+
+  function tab(t) {
+    clearInterval(timer);
+    if (t === "qr") {
+      $("#tab").innerHTML = `<div class="qr-box"><div class="qr" id="qr">${WA.qr(216, 3)}</div><div class="bar"><i id="bar" style="width:100%"></i></div><div class="qr-meta" id="qrt">Refreshes in 20s</div></div>
+        <p class="hint">On your phone: <b>Settings › Linked devices › Link a device</b>, then scan.</p>`;
+      let left = 20, seed = 3;
+      timer = setInterval(() => {
+        left = left <= 1 ? (seed++, $("#qr").innerHTML = WA.qr(216, seed), 20) : left - 1;
+        $("#qrt").textContent = `Refreshes in ${left}s`;
+        $("#bar").style.width = (left / 20) * 100 + "%";
+      }, 1000);
+    } else {
+      $("#tab").innerHTML = `<label class="muted" style="font-size:13px">Your phone number, with country code</label>
+        <div style="display:flex;gap:8px;margin-top:6px"><input class="input" value="+966 55 012 3456"><button class="btn btn-primary" onclick="code()">Get code</button></div>
+        <div id="code"></div>`;
+    }
+  }
+  window.code = () => {
+    $("#code").innerHTML = `<div class="pair-code">${"KD7F29QX".split("").map((c, i) => (i === 4 ? "<i></i>" : "") + `<span>${c}</span>`).join("")}</div>
+      <p class="hint">On your phone: Link a device › <b>Link with phone number instead</b>, then type this code.</p>`;
+  };
+</script>
+<script src="../_shared/preview.js"></script>
+<script src="variants.js"></script>
+<script src="mocknav.js"></script>
+</body>
+</html>

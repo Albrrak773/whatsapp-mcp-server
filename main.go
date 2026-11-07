@@ -154,7 +154,7 @@ func openOwned(ctx context.Context, dataDir string, log zerolog.Logger) (*sql.DB
 		return nil, nil, nil, nil, err
 	}
 	cleanup := func() {
-		wa.Client.Disconnect()
+		wa.Client().Disconnect()
 		db.Close()
 		lock.Close()
 	}
@@ -175,16 +175,16 @@ func runLogin(ctx context.Context, dataDir string, log zerolog.Logger, phone str
 		return err
 	}
 	defer cleanup()
-	if wa.Client.Store.ID != nil {
-		fmt.Fprintf(os.Stderr, "Already linked as %s. Run `whatsapp-mcp logout` first to link again.\n", wa.Client.Store.ID.ToNonAD())
+	if wa.Client().Store.ID != nil {
+		fmt.Fprintf(os.Stderr, "Already linked as %s. Run `whatsapp-mcp logout` first to link again.\n", wa.Client().Store.ID.ToNonAD())
 		return nil
 	}
 
-	qrChan, err := wa.Client.GetQRChannel(ctx)
+	qrChan, err := wa.Client().GetQRChannel(ctx)
 	if err != nil {
 		return err
 	}
-	if err := wa.Client.Connect(); err != nil {
+	if err := wa.Client().Connect(); err != nil {
 		return err
 	}
 	qrPNG := filepath.Join(dataDir, "login-qr.png")
@@ -197,7 +197,7 @@ func runLogin(ctx context.Context, dataDir string, log zerolog.Logger, phone str
 				if codeShown {
 					continue
 				}
-				code, err := wa.Client.PairPhone(ctx, phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
+				code, err := wa.Client().PairPhone(ctx, phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
 				if err != nil {
 					return fmt.Errorf("request pairing code: %w", err)
 				}
@@ -211,7 +211,7 @@ func runLogin(ctx context.Context, dataDir string, log zerolog.Logger, phone str
 				fmt.Fprintf(os.Stderr, "(also saved as %s; it refreshes every ~20s)\n", qrPNG)
 			}
 		case "success":
-			fmt.Fprintf(os.Stderr, "\nLinked as %s.\n", wa.Client.Store.ID.ToNonAD())
+			fmt.Fprintf(os.Stderr, "\nLinked as %s.\n", wa.Client().Store.ID.ToNonAD())
 		case "timeout":
 			return errors.New("pairing timed out; run login again")
 		case whatsmeow.QRChannelEventError:
@@ -225,7 +225,7 @@ func runLogin(ctx context.Context, dataDir string, log zerolog.Logger, phone str
 			log.Debug().Str("event", item.Event).Msg("pairing event")
 		}
 	}
-	if wa.Client.Store.ID == nil {
+	if wa.Client().Store.ID == nil {
 		return errors.New("pairing did not complete")
 	}
 
@@ -271,14 +271,14 @@ func runLogout(ctx context.Context, dataDir string, log zerolog.Logger) error {
 		return err
 	}
 	defer cleanup()
-	if wa.Client.Store.ID == nil {
+	if wa.Client().Store.ID == nil {
 		fmt.Fprintln(os.Stderr, "Not linked.")
 		return nil
 	}
-	if err := wa.Client.Connect(); err != nil {
+	if err := wa.Client().Connect(); err != nil {
 		return err
 	}
-	if err := wa.Client.Logout(ctx); err != nil {
+	if err := wa.Client().Logout(ctx); err != nil {
 		return err
 	}
 	fmt.Fprintln(os.Stderr, "Unlinked. The message archive in", dbPath(dataDir), "was kept; delete it yourself if you want it gone.")
@@ -328,6 +328,7 @@ func runServe(ctx context.Context, dataDir string, log zerolog.Logger, transport
 		}
 		mux := http.NewServeMux()
 		mux.Handle("/mcp", handler)
+		mux.Handle("/", guardPage(addr, token, newPageHandler(app, addr, dataDir)))
 		srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 		go func() {
 			<-ctx.Done()
@@ -335,7 +336,7 @@ func runServe(ctx context.Context, dataDir string, log zerolog.Logger, transport
 			defer cancel()
 			_ = srv.Shutdown(shutdownCtx)
 		}()
-		log.Info().Str("url", "http://"+addr+"/mcp").Str("mode", app.mode).Msg("serving MCP over streamable HTTP")
+		log.Info().Str("url", "http://"+addr+"/mcp").Str("page", "http://"+addr+"/").Str("mode", app.Mode()).Msg("serving MCP over streamable HTTP")
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
@@ -353,10 +354,9 @@ func openForServe(ctx context.Context, dataDir string, log zerolog.Logger) (*App
 	}
 	_, st, wa, cleanup, err := openOwned(ctx, dataDir, log)
 	if err == nil {
-		app := &App{store: st, wa: wa, mode: "connected"}
-		if wa.Client.Store.ID == nil {
-			log.Warn().Msg("no WhatsApp account linked: run `whatsapp-mcp login`; serving the archive only")
-			app.mode = "not linked"
+		app := &App{store: st, wa: wa}
+		if wa.Client().Store.ID == nil {
+			log.Warn().Msg("no WhatsApp account linked: link it from the status page or with `whatsapp-mcp login`; serving the archive only")
 			return app, cleanup, nil
 		}
 		// Connect in the background so the archive is served right away. At boot the network is
@@ -365,14 +365,12 @@ func openForServe(ctx context.Context, dataDir string, log zerolog.Logger) (*App
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			err := keepConnecting(connCtx, log, startupBackoff, wa.Client.ConnectContext, func(err error) {
-				msg := err.Error()
-				wa.connectErr.Store(&msg)
-			})
+			connect := func(ctx context.Context) error { return wa.Client().ConnectContext(ctx) }
+			err := keepConnecting(connCtx, log, startupBackoff, connect, wa.wake, wa.recordConnectFailure)
 			switch {
 			case err == nil || errors.Is(err, context.Canceled):
 			case errors.Is(err, store.ErrDeviceDeleted):
-				log.Error().Msg("this device was logged out by WhatsApp; re-link with `whatsapp-mcp login`. Serving the archive only")
+				log.Error().Msg("this device was logged out by WhatsApp; link it again from the status page or with `whatsapp-mcp login`. Serving the archive only")
 			default:
 				log.Error().Err(err).Msg("connect to WhatsApp failed with a non-network error; not retrying. Serving the archive only")
 			}

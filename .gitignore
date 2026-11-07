@@ -25,3 +25,5 @@ connection.lock
 *.swp
 *~
 .DS_Store
+mocks/*/shots/
+/whatsapp-mcp

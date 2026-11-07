@@ -1,0 +1,119 @@
+/* Shared tokens for whatsapp-mcp's web page mocks. The product has no UI yet, so these are
+   the proposal: calm neutrals, one WhatsApp-adjacent green, amber for "working on it",
+   red for "needs you". Dark is the default; light follows the OS. */
+:root {
+  --bg: #0c100f;
+  --surface: #131917;
+  --surface-2: #19211e;
+  --surface-3: #212b27;
+  --border: #25302c;
+  --border-strong: #33403b;
+  --text: #e9efed;
+  --text-2: #b4c0bc;
+  --muted: #7f8d88;
+
+  --accent: #2fd679;
+  --accent-ink: #04210f;
+  --accent-soft: rgba(47, 214, 121, 0.12);
+  --warn: #f2b13d;
+  --warn-soft: rgba(242, 177, 61, 0.12);
+  --danger: #f2646a;
+  --danger-soft: rgba(242, 100, 106, 0.12);
+  --info: #6aa8ff;
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 18px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f6f5;
+    --surface: #ffffff;
+    --surface-2: #f6f8f7;
+    --surface-3: #edf1ef;
+    --border: #e1e7e4;
+    --border-strong: #cdd6d2;
+    --text: #0f1815;
+    --text-2: #3b4843;
+    --muted: #6a7873;
+    --accent: #12a150;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(18, 161, 80, 0.1);
+    --warn: #b77a09;
+    --warn-soft: rgba(214, 145, 18, 0.12);
+    --danger: #d63c43;
+    --danger-soft: rgba(214, 60, 67, 0.09);
+    --shadow: 0 1px 2px rgba(15, 24, 21, 0.04), 0 12px 32px -16px rgba(15, 24, 21, 0.18);
+    color-scheme: light;
+  }
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+input { font: inherit; color: inherit; }
+.mono { font-family: var(--mono); font-size: 0.92em; }
+.muted { color: var(--muted); }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 38px; padding: 0 16px; border-radius: 10px;
+  border: 1px solid var(--border-strong); background: var(--surface-2);
+  font-weight: 550; white-space: nowrap; transition: background .15s, border-color .15s, transform .05s;
+}
+.btn:hover { background: var(--surface-3); }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+.btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, white); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+.btn-ghost:hover { background: var(--surface-2); }
+.btn-lg { height: 46px; padding: 0 22px; font-size: 15px; border-radius: 12px; }
+.btn svg { width: 16px; height: 16px; }
+
+/* Status dot */
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.dot.warn { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); animation: pulse 1.6s ease-in-out infinite; }
+.dot.bad { background: var(--danger); box-shadow: 0 0 0 4px var(--danger-soft); }
+@keyframes pulse { 50% { opacity: .45; } }
+
+/* Pill */
+.pill {
+  display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px;
+  border-radius: 999px; font-size: 13px; font-weight: 550; border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.pill.ok { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.pill.warn { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+.pill.bad { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
+
+/* Avatars from initials */
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: 13px; font-weight: 650; color: #fff;
+}
+
+/* QR */
+.qr { background: #fff; border-radius: 14px; padding: 14px; display: inline-block; line-height: 0; }
+.qr svg { display: block; }
+
+/* Segmented control */
+.seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
+.seg button { border: 0; background: transparent; height: 30px; padding: 0 12px; border-radius: 7px; color: var(--muted); font-weight: 550; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
