@@ -57,6 +57,8 @@ service: install
 service-local: build
 	$(MAKE) service-start BINDIR="$(CURDIR)/bin"
 
+# network-online.target is best effort in a user session (the user manager can't wait on the
+# system one), so `serve` also retries its first connect until the network is up.
 service-start:
 	install -d $(UNITDIR)
 	printf '%s\n' \

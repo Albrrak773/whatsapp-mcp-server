@@ -355,14 +355,29 @@ func openForServe(ctx context.Context, dataDir string, log zerolog.Logger) (*App
 	if err == nil {
 		app := &App{store: st, wa: wa, mode: "connected"}
 		if wa.Client.Store.ID == nil {
-			log.Warn().Msg("no WhatsApp account linked yet: run `whatsapp-mcp login`; serving the (empty) archive")
+			log.Warn().Msg("no WhatsApp account linked: run `whatsapp-mcp login`; serving the archive only")
 			app.mode = "not linked"
 			return app, cleanup, nil
 		}
-		if err := wa.Client.Connect(); err != nil {
-			log.Error().Err(err).Msg("initial connect failed; will serve the archive only")
-		}
-		return app, cleanup, nil
+		// Connect in the background so the archive is served right away. At boot the network is
+		// often not up yet, so network failures are retried until the first connect succeeds.
+		connCtx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			err := keepConnecting(connCtx, log, startupBackoff, wa.Client.ConnectContext, func(err error) {
+				msg := err.Error()
+				wa.connectErr.Store(&msg)
+			})
+			switch {
+			case err == nil || errors.Is(err, context.Canceled):
+			case errors.Is(err, store.ErrDeviceDeleted):
+				log.Error().Msg("this device was logged out by WhatsApp; re-link with `whatsapp-mcp login`. Serving the archive only")
+			default:
+				log.Error().Err(err).Msg("connect to WhatsApp failed with a non-network error; not retrying. Serving the archive only")
+			}
+		}()
+		return app, func() { cancel(); <-done; cleanup() }, nil
 	}
 	if _, statErr := os.Stat(dbPath(dataDir)); statErr != nil {
 		return nil, nil, err

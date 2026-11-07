@@ -37,10 +37,16 @@ func (a *App) online() error {
 	if a.wa == nil {
 		return errors.New("this server instance is read-only (another whatsapp-mcp process owns the WhatsApp connection); only the archive can be queried")
 	}
+	if reason := a.wa.loggedOut.Load(); reason != nil {
+		return fmt.Errorf("WhatsApp logged this device out (%s): re-link with `whatsapp-mcp login`; the archive can still be queried", *reason)
+	}
 	if !a.wa.LoggedIn() {
 		return errors.New("no WhatsApp account linked: run `whatsapp-mcp login`")
 	}
 	if !a.wa.Client.IsConnected() {
+		if last := a.wa.connectErr.Load(); last != nil {
+			return fmt.Errorf("not connected to WhatsApp: the last attempt failed (%s); retrying in the background, the archive can still be queried", *last)
+		}
 		return errors.New("not connected to WhatsApp right now (reconnecting); try again shortly")
 	}
 	return nil
@@ -325,6 +331,7 @@ type StatusOut struct {
 	Mode            string `json:"mode"`
 	LoggedIn        bool   `json:"logged_in"`
 	Connected       bool   `json:"connected"`
+	OfflineReason   string `json:"offline_reason,omitempty"`
 	Account         string `json:"account,omitempty"`
 	Chats           int    `json:"archived_chats"`
 	Messages        int    `json:"archived_messages"`
@@ -346,6 +353,9 @@ func (a *App) status(ctx context.Context, _ *mcp.CallToolRequest, _ StatusIn) (*
 		out.LoggedIn = a.wa.LoggedIn()
 		out.Connected = a.wa.Client.IsConnected()
 		out.Account = a.ownJID()
+		if err := a.online(); err != nil {
+			out.OfflineReason = err.Error()
+		}
 	} else {
 		var jid string
 		if a.store.db.QueryRowContext(ctx, `SELECT jid FROM whatsmeow_device LIMIT 1`).Scan(&jid) == nil {
